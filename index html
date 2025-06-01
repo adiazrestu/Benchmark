@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra Heavy 3D & Extreme CPU Stress Test (4K)</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Orbitron', sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        canvas {
+            width: 100%;
+            height: calc(100% - 180px);
+            display: block;
+            max-width: 3840px;
+            max-height: 2160px;
+        }
+        .control-metrics-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            width: 90%;
+            max-width: 1200px;
+            z-index: 1000;
+        }
+        .controls, .metrics {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(255, 45, 149, 0.3);
+            border: 2px solid #ff2d95;
+        }
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .metrics {
+            flex: 0.5;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .controls h2, .metrics h2 {
+            margin: 0;
+            font-size: clamp(16px, 2.5vw, 20px);
+            color: #ff2d95;
+            text-shadow: 0 0 5px #ff2d95;
+        }
+        .slider-container, .select-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        .slider-container label, .select-container label {
+            font-size: clamp(12px, 2vw, 16px);
+            color: #0ff;
+        }
+        .slider-container input[type="range"] {
+            width: 100%;
+            accent-color: #ff2d95;
+        }
+        .select-container select {
+            padding: 10px;
+            font-size: clamp(12px, 2vw, 16px);
+            border-radius: 5px;
+            background: #222;
+            color: #0ff;
+            border: 1px solid #ff2d95;
+        }
+        .mode-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+        }
+        .mode-btn, .control-btn {
+            padding: 8px 12px;
+            font-size: clamp(10px, 1.8vw, 14px);
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 45, 149, 0.2);
+            color: #0ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .mode-btn.active, .mode-btn:hover, .control-btn:hover {
+            background: #ff2d95;
+            color: #000;
+            box-shadow: 0 0 10px rgba(255, 45, 149, 0.5);
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: clamp(12px, 2vw, 16px);
+            color: #0ff;
+        }
+        .metrics-grid div {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            border-radius: 5px;
+            background: rgba(255, 45, 149, 0.1);
+        }
+        .metrics-grid span {
+            color: #00ff00;
+        }
+        .warning {
+            text-align: center;
+            color: #ff3333;
+            font-weight: bold;
+            font-size: clamp(12px, 2vw, 16px);
+            margin-top: 10px;
+            text-shadow: 0 0 5px #ff0000;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(14px, 2.5vw, 18px);
+            color: #ffcc00;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1001;
+        }
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1002;
+            transition: opacity 0.5s;
+        }
+        .loading-hex {
+            width: 100px;
+            height: 100px;
+            background: transparent;
+            border: 3px solid #ff2d95;
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            animation: rotate-hex 2s linear infinite;
+            opacity: 0.7;
+        }
+        @keyframes rotate-hex {
+            0% { transform: rotate(0deg); opacity: 0.3; }
+            50% { opacity: 0.8; }
+            100% { transform: rotate(360deg); opacity: 0.3; }
+        }
+        .preset-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+            animation: presetActivate 1s ease-out;
+        }
+        @keyframes presetActivate {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(0.95); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        @media screen and (max-width: 768px) {
+            .control-metrics-container {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .controls, .metrics {
+                width: 100%;
+                padding: 10px;
+            }
+            .controls h2, .metrics h2 {
+                font-size: clamp(14px, 2vw, 18px);
+            }
+            .mode-btn, .control-btn {
+                padding: 6px 10px;
+                font-size: clamp(8px, 1.5vw, 12px);
+            }
+            .slider-container label, .select-container label {
+                font-size: clamp(10px, 1.8vw, 14px);
+            }
+            .metrics-grid {
+                font-size: clamp(10px, 1.8vw, 14px);
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="loading-overlay">
+        <div class="loading-hex"></div>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div class="control-metrics-container">
+        <div class="controls">
+            <h2>GPU & CPU Stress Test</h2>
+            <div class="slider-container">
+                <label for="stressLevel">GPU Stress Level: <span id="stressValue">50%</span></label>
+                <input type="range" id="stressLevel" min="10" max="150" value="50">
+            </div>
+            <div class="slider-container">
+                <label for="cpuStressLevel">CPU Stress Level: <span id="cpuStressValue">0%</span></label>
+                <input type="range" id="cpuStressLevel" min="0" max="100" value="0">
+            </div>
+            <div class="select-container">
+                <label for="resolution">Resolution:</label>
+                <select id="resolution">
+                    <option value="800x600">800x600 (Light)</option>
+                    <option value="1280x720" selected>1280x720 (Medium)</option>
+                    <option value="1920x1080">1920x1080 (Heavy)</option>
+                    <option value="2560x1440">2560x1440 (Very Heavy)</option>
+                    <option value="3840x2160">3840x2160 (Ultra Heavy)</option>
+                </select>
+            </div>
+            <div class="select-container">
+                <label for="preset">Animation Preset:</label>
+                <select id="preset">
+                    <option value="rocky">🪨 Rocky</option>
+                    <option value="alien">👽 Alien</option>
+                    <option value="volcanic">🌋 Volcanic</option>
+                    <option value="frozen" selected>❄️ Frozen</option>
+                    <option value="cyber">💻 Cyber</option>
+                    <option value="volumetric">🌌 Volumetric</option>
+                </select>
+            </div>
+            <div class="mode-buttons">
+                <button class="mode-btn" data-mode="low">Low</button>
+                <button class="mode-btn" data-mode="medium">Medium</button>
+                <button class="mode-btn" data-mode="high">High</button>
+                <button class="mode-btn" data-mode="super-high">Super High</button>
+                <button class="mode-btn" data-mode="extreme">Extreme</button>
+                <button class="mode-btn" data-mode="ultra-extreme">Ultra Extreme</button>
+            </div>
+            <div>
+                <button class="control-btn" id="start-btn">Start Test</button>
+                <button class="control-btn" id="stop-btn">Stop Test</button>
+                <button class="control-btn" id="fullscreen-btn">Toggle Fullscreen</button>
+            </div>
+            <div class="warning">Benchmark Created By: Adiaz And TyoDR</div>
+        </div>
+        <div class="metrics">
+            <h2>Performance Metrics</h2>
+            <div class="metrics-grid">
+                <div>FPS: <span id="fps">0</span></div>
+                <div>CPU Usage: <span id="cpuUsage">0%</span></div>
+                <div>GPU Score: <span id="gpuScore">0</span></div>
+                <div>CPU Score: <span id="cpuScore">0</span></div>
+            </div>
+        </div>
+    </div>
+    <div id="loading">Loading resources...</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="module">
+        class Renderer {
+            constructor(canvasSelector) {
+                this.canvas = document.querySelector(canvasSelector);
+                this.loadingOverlay = document.getElementById("loading-overlay");
+                this.loadingDisplay = document.getElementById("loading");
+                this.isRunning = false;
+                this.lastTime = performance.now();
+                this.frameCount = 0;
+                this.fps = 0;
+                this.lastFps = 0;
+                this.testStartTime = 0;
+                this.stressLevel = 0.5;
+                this.cpuStressLevel = 0;
+                this.cpuWorkers = [];
+                this.cpuUsage = 0;
+                this.lastCpuUsage = 0;
+                this.gpuScore = 0;
+                this.lastGpuScore = 0;
+                this.cpuScore = 0;
+                this.lastCpuScore = 0;
+                this.cpuIterationCount = 0;
+                this.cpuComputationTimes = [];
+                this.resolutionScale = 1.0;
+                this.baseParticleCount = 250000;
+                this.basePlaneSegments = 256;
+                this.baseSphereCount = 50;
+                this.stressModes = {
+                    'low': { factor: 0.3, calcLoops: 30, particles: 0.4, segments: 0.4, spheres: 0.2 },
+                    'medium': { factor: 0.5, calcLoops: 60, particles: 0.8, segments: 0.8, spheres: 0.4 },
+                    'high': { factor: 0.7, calcLoops: 90, particles: 1.2, segments: 1.2, spheres: 0.6 },
+                    'super-high': { factor: 0.9, calcLoops: 120, particles: 1.6, segments: 1.6, spheres: 0.8 },
+                    'extreme': { factor: 1.2, calcLoops: 180, particles: 2.0, segments: 2.0, spheres: 1.0 },
+                    'ultra-extreme': { factor: 1.5, calcLoops: 240, particles: 2.5, segments: 2.5, spheres: 1.2 }
+                };
+                this.volumetricAngle1 = 2.8;
+                this.volumetricAngle2 = 0.4;
+                this.volumetricLen = 1.6;
+                this.volumetricCenX = 0.0;
+                this.volumetricCenY = 0.0;
+                this.volumetricCenZ = 0.0;
+                this.setupThreeJS();
+                this.setupControls();
+                this.updateResolution();
+                setTimeout(() => {
+                    this.loadingOverlay.style.opacity = "0";
+                    setTimeout(() => {
+                        this.loadingOverlay.style.display = "none";
+                        this.loadingDisplay.textContent = "Ready";
+                    }, 500);
+                }, 1000);
+            }
+
+            setupThreeJS() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false });
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+                this.createPlane();
+                this.particleCount = this.baseParticleCount;
+                this.createParticles();
+                this.createSpheres();
+                this.createVolumetricQuad();
+
+                this.ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                this.directionalLight.position.set(1, 2, 3);
+                this.pointLight = new THREE.PointLight(0xffaa88, 0.8);
+                this.pointLight.position.set(-3, 2, 2);
+                this.spotLight = new THREE.SpotLight(0x88ff88, 1.2, 50, Math.PI / 6, 0.5);
+                this.spotLight.position.set(0, 10, 0);
+                this.scene.add(this.ambientLight, this.directionalLight, this.pointLight, this.spotLight);
+
+                this.camera.position.set(0, 2, 5);
+                this.camera.lookAt(0, 0, 0);
+
+                this.applyPreset(document.getElementById('preset').value);
+            }
+
+            createVolumetricQuad() {
+                const geometry = new THREE.PlaneGeometry(2, 2);
+                const kernel = `
+                    float kernal(vec3 ver) {
+                        vec3 a = ver;
+                        float b, c, d, e;
+                        for (int i = 0; i < 5; i++) {
+                            b = length(a);
+                            c = atan(a.y, a.x) * 8.0;
+                            e = 1.0 / b;
+                            d = acos(a.z / b) * 8.0;
+                            b = pow(b, 8.0);
+                            a = vec3(b * sin(d) * cos(c), b * sin(d) * sin(c), b * cos(d)) + ver;
+                            if (b > 6.0) {
+                                break;
+                            }
+                        }
+                        return 4.0 - a.x * a.x - a.y * a.y - a.z * a.z;
+                    }
+                `;
+                this.volumetricMaterial = new THREE.ShaderMaterial({
+                    vertexShader: `
+                        varying vec3 dir;
+                        varying vec3 localdir;
+                        uniform vec3 right;
+                        uniform vec3 up;
+                        uniform vec3 forward;
+                        uniform float x;
+                        uniform float y;
+
+                        void main() {
+                            gl_Position = vec4(position, 1.0);
+                            dir = forward + right * position.x * x + up * position.y * y;
+                            localdir = vec3(position.x * x, position.y * y, -1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        #define PI 3.14159265358979324
+                        #define M_L 0.3819660113
+                        #define M_R 0.6180339887
+                        #define MAXR 8
+                        #define SOLVER 8
+                        precision highp float;
+                        ${kernel}
+                        uniform vec3 right;
+                        uniform vec3 up;
+                        uniform vec3 forward;
+                        uniform vec3 origin;
+                        uniform float len;
+                        uniform float x;
+                        uniform float y;
+                        varying vec3 dir;
+                        varying vec3 localdir;
+
+                        void main() {
+                            vec3 color = vec3(0.0);
+                            int sign = 0;
+                            float v, v1, v2;
+                            float r1, r2, r3, r4, m1, m2, m3, m4;
+                            vec3 n, reflect;
+                            const float step = 0.002;
+                            v1 = kernal(origin + dir * (step * len));
+                            v2 = kernal(origin);
+                            for (int k = 2; k < 1002; k++) {
+                                vec3 ver = origin + dir * (step * len * float(k));
+                                v = kernal(ver);
+                                if (v > 0.0 && v1 < 0.0) {
+                                    r1 = step * len * float(k - 1);
+                                    r2 = step * len * float(k);
+                                    m1 = kernal(origin + dir * r1);
+                                    m2 = kernal(origin + dir * r2);
+                                    for (int l = 0; l < SOLVER; l++) {
+                                        r3 = r1 * 0.5 + r2 * 0.5;
+                                        m3 = kernal(origin + dir * r3);
+                                        if (m3 > 0.0) {
+                                            r2 = r3;
+                                            m2 = m3;
+                                        } else {
+                                            r1 = r3;
+                                            m1 = m3;
+                                        }
+                                    }
+                                    if (r3 < 2.0 * len) {
+                                        sign = 1;
+                                        break;
+                                    }
+                                }
+                                if (v < v1 && v1 > v2 && v1 < 0.0 && (v1 * 2.0 > v || v1 * 2.0 > v2)) {
+                                    r1 = step * len * float(k - 2);
+                                    r2 = step * len * (float(k) - 2.0 + 2.0 * M_L);
+                                    r3 = step * len * (float(k) - 2.0 + 2.0 * M_R);
+                                    r4 = step * len * float(k);
+                                    m2 = kernal(origin + dir * r2);
+                                    m3 = kernal(origin + dir * r3);
+                                    for (int l = 0; l < MAXR; l++) {
+                                        if (m2 > m3) {
+                                            r4 = r3;
+                                            r3 = r2;
+                                            r2 = r4 * M_L + r1 * M_R;
+                                            m3 = m2;
+                                            m2 = kernal(origin + dir * r2);
+                                        } else {
+                                            r1 = r2;
+                                            r2 = r3;
+                                            r3 = r4 * M_R + r1 * M_L;
+                                            m2 = m3;
+                                            m3 = kernal(origin + dir * r3);
+                                        }
+                                    }
+                                    if (m2 > 0.0) {
+                                        r1 = step * len * float(k - 2);
+                                        r2 = r2;
+                                        m1 = kernal(origin + dir * r1);
+                                        m2 = kernal(origin + dir * r2);
+                                        for (int l = 0; l < SOLVER; l++) {
+                                            r3 = r1 * 0.5 + r2 * 0.5;
+                                            m3 = kernal(origin + dir * r3);
+                                            if (m3 > 0.0) {
+                                                r2 = r3;
+                                                m2 = m3;
+                                            } else {
+                                                r1 = r3;
+                                                m1 = m3;
+                                            }
+                                        }
+                                        if (r3 < 2.0 * len && r3 > step * len) {
+                                            sign = 1;
+                                            break;
+                                        }
+                                    } else if (m3 > 0.0) {
+                                        r1 = step * len * float(k - 2);
+                                        r2 = r3;
+                                        m1 = kernal(origin + dir * r1);
+                                        m2 = kernal(origin + dir * r2);
+                                        for (int l = 0; l < SOLVER; l++) {
+                                            r3 = r1 * 0.5 + r2 * 0.5;
+                                            m3 = kernal(origin + dir * r3);
+                                            if (m3 > 0.0) {
+                                                r2 = r3;
+                                                m2 = m3;
+                                            } else {
+                                                r1 = r3;
+                                                m1 = m3;
+                                            }
+                                        }
+                                        if (r3 < 2.0 * len && r3 > step * len) {
+                                            sign = 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                                v2 = v1;
+                                v1 = v;
+                            }
+                            if (sign == 1) {
+                                vec3 ver = origin + dir * r3;
+                                float r1 = ver.x * ver.x + ver.y * ver.y + ver.z * ver.z;
+                                n.x = kernal(ver - right * (r3 * 0.00025)) - kernal(ver + right * (r3 * 0.00025));
+                                n.y = kernal(ver - up * (r3 * 0.00025)) - kernal(ver + up * (r3 * 0.00025));
+                                n.z = kernal(ver + forward * (r3 * 0.00025)) - kernal(ver - forward * (r3 * 0.00025));
+                                float r3n = n.x * n.x + n.y * n.y + n.z * n.z;
+                                n = n * (1.0 / sqrt(r3n));
+                                ver = localdir;
+                                r3n = ver.x * ver.x + ver.y * ver.y + ver.z * ver.z;
+                                ver = ver * (1.0 / sqrt(r3n));
+                                reflect = n * (-2.0 * dot(ver, n)) + ver;
+                                r3n = reflect.x * 0.276 + reflect.y * 0.920 + reflect.z * 0.276;
+                                float r4 = n.x * 0.276 + n.y * 0.920 + n.z * 0.276;
+                                r3n = max(0.0, r3n);
+                                r3n = r3n * r3n * r3n * r3n;
+                                r3n = r3n * 0.45 + r4 * 0.25 + 0.3;
+                                n.x = sin(r1 * 10.0) * 0.5 + 0.5;
+                                n.y = sin(r1 * 10.0 + 2.05) * 0.5 + 0.5;
+                                n.z = sin(r1 * 10.0 - 2.05) * 0.5 + 0.5;
+                                color = n * r3n;
+                            }
+                            gl_FragColor = vec4(color, 1.0);
+                        }
+                    `,
+                    uniforms: {
+                        right: { value: new THREE.Vector3(0, 0, 0) },
+                        up: { value: new THREE.Vector3(0, 0, 0) },
+                        forward: { value: new THREE.Vector3(0, 0, 0) },
+                        origin: { value: new THREE.Vector3(0, 0, 0) },
+                        x: { value: 0 },
+                        y: { value: 0 },
+                        len: { value: this.volumetricLen }
+                    }
+                });
+                this.volumetricQuad = new THREE.Mesh(geometry, this.volumetricMaterial);
+                this.volumetricQuad.visible = false;
+                this.scene.add(this.volumetricQuad);
+            }
+
+            applyPreset(type) {
+                this.scene.remove(this.plane);
+                this.scene.remove(this.rainParticles);
+                this.spheres.forEach(sphere => this.scene.remove(sphere));
+                this.volumetricQuad.visible = false;
+                let overlayColor;
+
+                if (type === 'volumetric') {
+                    this.volumetricQuad.visible = true;
+                    this.camera.position.set(0, 0, 5);
+                    this.camera.lookAt(0, 0, 0);
+                    this.ambientLight.color.setHex(0x000000);
+                    this.directionalLight.color.setHex(0x000000);
+                    this.pointLight.color.setHex(0x000000);
+                    this.spotLight.color.setHex(0x000000);
+                    overlayColor = 'rgba(100,100,255,0.2)';
+                } else {
+                    this.scene.add(this.plane);
+                    this.scene.add(this.rainParticles);
+                    this.spheres.forEach(sphere => this.scene.add(sphere));
+                    switch (type) {
+                        case 'rocky':
+                            this.planeMaterial.uniforms.uSpeed.value = 0.4;
+                            this.planeMaterial.uniforms.uNoiseScale.value = 4.0;
+                            this.planeMaterial.uniforms.uAmplitude.value = 0.8;
+                            this.planeMaterial.uniforms.uDisplacementScale.value = 2.0;
+                            this.planeMaterial.uniforms.uFogColor.value.setHex(0x666666);
+                            this.planeMaterial.uniforms.uFog.value = 0.1;
+                            this.planeMaterial.uniforms.uColorVariation.value = 1.2;
+                            this.ambientLight.color.setHex(0x333333);
+                            this.directionalLight.color.setHex(0xdddddd);
+                            this.pointLight.color.setHex(0x887766);
+                            this.spotLight.color.setHex(0x666666);
+                            this.camera.position.y = 2.5;
+                            overlayColor = 'rgba(74,74,74,0.3)';
+                            break;
+                        case 'alien':
+                            this.planeMaterial.uniforms.uSpeed.value = 0.8;
+                            this.planeMaterial.uniforms.uNoiseScale.value = 5.0;
+                            this.planeMaterial.uniforms.uAmplitude.value = 1.5;
+                            this.planeMaterial.uniforms.uDisplacementScale.value = 3.0;
+                            this.planeMaterial.uniforms.uFogColor.value.setHex(0x228833);
+                            this.planeMaterial.uniforms.uFog.value = 0.12;
+                            this.planeMaterial.uniforms.uColorVariation.value = 1.5;
+                            this.ambientLight.color.setHex(0x330044);
+                            this.directionalLight.color.setHex(0x00ff88);
+                            this.pointLight.color.setHex(0xff00ff);
+                            this.spotLight.color.setHex(0x00ff88);
+                            this.camera.position.y = 2.0;
+                            overlayColor = 'rgba(0,255,136,0.2)';
+                            break;
+                        case 'volcanic':
+                            this.planeMaterial.uniforms.uSpeed.value = 1.2;
+                            this.planeMaterial.uniforms.uNoiseScale.value = 3.0;
+                            this.planeMaterial.uniforms.uAmplitude.value = 2.0;
+                            this.planeMaterial.uniforms.uDisplacementScale.value = 3.5;
+                            this.planeMaterial.uniforms.uFogColor.value.setHex(0x662200);
+                            this.planeMaterial.uniforms.uFog.value = 0.15;
+                            this.planeMaterial.uniforms.uColorVariation.value = 1.5;
+                            this.ambientLight.color.setHex(0x221100);
+                            this.directionalLight.color.setHex(0xff4400);
+                            this.pointLight.color.setHex(0xff6600);
+                            this.spotLight.color.setHex(0xff4400);
+                            this.camera.position.y = 2.0;
+                            overlayColor = 'rgba(255,100,0,0.3)';
+                            break;
+                        case 'frozen':
+                            this.planeMaterial.uniforms.uSpeed.value = 0.2;
+                            this.planeMaterial.uniforms.uNoiseScale.value = 4.5;
+                            this.planeMaterial.uniforms.uAmplitude.value = 0.4;
+                            this.planeMaterial.uniforms.uDisplacementScale.value = 1.8;
+                            this.planeMaterial.uniforms.uFogColor.value.setHex(0x88aaff);
+                            this.planeMaterial.uniforms.uFog.value = 0.08;
+                            this.planeMaterial.uniforms.uColorVariation.value = 2.0;
+                            this.ambientLight.color.setHex(0x002244);
+                            this.directionalLight.color.setHex(0x00ffff);
+                            this.pointLight.color.setHex(0xaaccff);
+                            this.spotLight.color.setHex(0x88aaff);
+                            this.camera.position.y = 2.0;
+                            overlayColor = 'rgba(0,200,255,0.2)';
+                            break;
+                        case 'cyber':
+                            this.planeMaterial.uniforms.uSpeed.value = 2.5;
+                            this.planeMaterial.uniforms.uNoiseScale.value = 6.0;
+                            this.planeMaterial.uniforms.uAmplitude.value = 3.0;
+                            this.planeMaterial.uniforms.uDisplacementScale.value = 4.0;
+                            this.planeMaterial.uniforms.uFogColor.value.setHex(0x000000);
+                            this.planeMaterial.uniforms.uFog.value = 0.0;
+                            this.planeMaterial.uniforms.uColorVariation.value = 3.5;
+                            this.ambientLight.color.setHex(0x000000);
+                            this.directionalLight.color.setHex(0x00ff00);
+                            this.pointLight.color.setHex(0xff00ff);
+                            this.spotLight.color.setHex(0x00ff00);
+                            this.camera.position.y = 2.0;
+                            overlayColor = 'rgba(0,255,100,0.2)';
+                            break;
+                    }
+                    this.planeMaterial.uniforms.uAmbientColor.value.set(this.ambientLight.color);
+                    this.planeMaterial.uniforms.uDirectionalColor.value.set(this.directionalLight.color);
+                    this.planeMaterial.uniforms.uPointLightColor.value.set(this.pointLight.color);
+                    this.planeMaterial.uniforms.uSpotLightColor.value.set(this.spotLight.color);
+                    this.rainParticles.material.uniforms.uColor.value.set(this.pointLight.color);
+                    this.sphereMaterial.uniforms.uColor.value.set(this.directionalLight.color);
+                }
+
+                const presetAnim = document.createElement('div');
+                presetAnim.className = 'preset-overlay';
+                presetAnim.style.background = `radial-gradient(circle at center, ${overlayColor}, transparent 70%)`;
+                document.body.appendChild(presetAnim);
+                setTimeout(() => presetAnim.remove(), 1000);
+            }
+
+            createPlane() {
+                const mode = document.querySelector('.mode-btn.active')?.dataset.mode || 'medium';
+                const segments = Math.floor(this.basePlaneSegments * this.stressModes[mode].segments * this.resolutionScale);
+                const geometry = new THREE.PlaneGeometry(50, 50, segments, segments);
+                this.planeMaterial = new THREE.ShaderMaterial({
+                    vertexShader: `
+                        uniform float uTime;
+                        uniform float uSpeed;
+                        uniform float uNoiseScale;
+                        uniform float uAmplitude;
+                        
+                        varying vec3 vNormal;
+                        varying vec2 vUv;
+                        varying float vDisplacement;
+                        varying vec3 vWorldPosition;
+                        varying vec3 vWorldNormal;
+
+                        vec4 permute(vec4 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+                        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+                        
+                        float noise(vec3 P) {
+                            vec3 Pi0 = floor(P);
+                            vec3 Pi1 = Pi0 + vec3(1.0);
+                            Pi1 = min(Pi1, vec3(289.0));
+                            vec3 Pf0 = fract(P);
+                            vec3 Pf1 = Pf0 - vec3(1.0);
+                            vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+                            vec4 iy = vec4(Pi0.yy, Pi1.yy);
+                            vec4 iz0 = Pi0.zzzz;
+                            vec4 iz1 = Pi1.zzzz;
+
+                            vec4 ixy = permute(permute(ix) + iy);
+                            vec4 ixy0 = permute(ixy + iz0);
+                            vec4 ixy1 = permute(ixy + iz1);
+
+                            vec4 gx0 = ixy0 / 7.0;
+                            vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;
+                            gx0 = fract(gx0);
+                            vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+                            vec4 sz0 = step(gz0, vec4(0.0));
+                            gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+                            gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+                            vec4 gx1 = ixy1 / 7.0;
+                            vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;
+                            gx1 = fract(gx1);
+                            vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+                            vec4 sz1 = step(gz1, vec4(0.0));
+                            gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+                            gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+                            vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);
+                            vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);
+                            vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);
+                            vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);
+                            vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);
+                            vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);
+                            vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);
+                            vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);
+
+                            vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+                            g000 *= norm0.x;
+                            g010 *= norm0.y;
+                            g100 *= norm0.z;
+                            g110 *= norm0.w;
+
+                            vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+                            g001 *= norm1.x;
+                            g011 *= norm1.y;
+                            g101 *= norm1.z;
+                            g111 *= norm1.w;
+
+                            float n000 = dot(g000, Pf0);
+                            float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));
+                            float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+                            float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));
+                            float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));
+                            float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+                            float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));
+                            float n111 = dot(g111, Pf1);
+
+                            vec3 fade_xyz = Pf0 * Pf0 * Pf0 * (Pf0 * (Pf0 * 6.0 - 15.0) + 10.0);
+                            vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+                            vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+                            float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
+                            return 2.2 * n_xyz;
+                        }
+
+                        float fbm(vec3 p) {
+                            float v = 0.0;
+                            float a = 0.5;
+                            vec3 shift = vec3(100.0);
+                            for (int i = 0; i < 6; ++i) {
+                                v += a * noise(p);
+                                p = p * 2.0 + shift;
+                                a *= 0.5;
+                            }
+                            return v;
+                        }
+
+                        void main() {
+                            vUv = uv;
+                            vec3 pos = position;
+                            
+                            float displacement = fbm(vec3(pos.xy * uNoiseScale, uTime * uSpeed));
+                            pos.z += displacement * uAmplitude;
+
+                            vDisplacement = displacement * uAmplitude;
+
+                            float delta = 0.001;
+                            float dx = fbm(vec3((pos.x + delta) * uNoiseScale, pos.y * uNoiseScale, uTime * uSpeed)) * uAmplitude;
+                            float dy = fbm(vec3(pos.x * uNoiseScale, (pos.y + delta) * uNoiseScale, uTime * uSpeed)) * uAmplitude;
+                            
+                            vec3 tangentX = vec3(1.0, 0.0, (dx - displacement) / delta);
+                            vec3 tangentY = vec3(0.0, 1.0, (dy - displacement) / delta);
+                            vNormal = normalize(cross(tangentX, tangentY));
+
+                            vWorldPosition = position;
+                            vWorldNormal = vNormal;
+
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vNormal;
+                        varying vec2 vUv;
+                        varying float vDisplacement;
+                        varying vec3 vWorldPosition;
+                        varying vec3 vWorldNormal;
+
+                        uniform vec3 uAmbientColor;
+                        uniform vec3 uDirectionalColor;
+                        uniform vec3 uPointLightColor;
+                        uniform vec3 uSpotLightColor;
+                        uniform float uSpecularPower;
+                        uniform float uSpecularIntensity;
+                        uniform float uDisplacementScale;
+                        uniform float uFog;
+                        uniform vec3 uFogColor;
+                        uniform float uColorVariation;
+
+                        void main() {
+                            vec3 directionalLightDir = normalize(vec3(1.0, 2.0, 3.0));
+                            vec3 pointLightPos = vec3(-3.0, 2.0, 2.0);
+                            vec3 pointLightDir = normalize(pointLightPos - vWorldPosition);
+                            vec3 spotLightPos = vec3(0.0, 10.0, 0.0);
+                            vec3 spotLightDir = normalize(spotLightPos - vWorldPosition);
+                            
+                            vec3 ambient = uAmbientColor * 0.4;
+                            
+                            float directionalDiffuse = max(dot(vWorldNormal, directionalLightDir), 0.0);
+                            float pointDiffuse = max(dot(vWorldNormal, pointLightDir), 0.0);
+                            float spotDiffuse = max(dot(vWorldNormal, spotLightDir), 0.0);
+                            
+                            vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+                            vec3 reflectDir = reflect(-directionalLightDir, vWorldNormal);
+                            float directionalSpecular = pow(max(dot(viewDir, reflectDir), 0.0), uSpecularPower) * uSpecularIntensity;
+                            
+                            vec3 pointReflectDir = reflect(-pointLightDir, vWorldNormal);
+                            float pointSpecular = pow(max(dot(viewDir, pointReflectDir), 0.0), uSpecularPower) * uSpecularIntensity;
+                            
+                            vec3 spotReflectDir = reflect(-spotLightDir, vWorldNormal);
+                            float spotSpecular = pow(max(dot(viewDir, spotReflectDir), 0.0), uSpecularPower) * uSpecularIntensity;
+                            
+                            vec3 directionalLight = (directionalDiffuse + directionalSpecular) * uDirectionalColor;
+                            vec3 pointLight = (pointDiffuse + pointSpecular) * uPointLightColor;
+                            vec3 spotLight = (spotDiffuse + spotSpecular) * uSpotLightColor;
+                            
+                            vec3 baseColor = mix(
+                                mix(vec3(0.2, 0.4, 0.8), vec3(0.3, 0.6, 1.0), vUv.y * uDisplacementScale),
+                                mix(vec3(0.8, 0.9, 1.0), vec3(1.0, 0.9, 0.7), vDisplacement * 0.5),
+                                smoothstep(0.2, 0.8, vUv.x)
+                            );
+                            
+                            float fogFactor = exp(-uFog * length(vWorldPosition));
+                            vec3 fogColor = uFogColor;
+                            baseColor = mix(fogColor, baseColor, fogFactor);
+                            
+                            baseColor *= uColorVariation;
+                            
+                            vec3 finalColor = (ambient + directionalLight + pointLight + spotLight) * baseColor;
+                            gl_FragColor = vec4(finalColor, 1.0);
+                        }
+                    `,
+                    uniforms: {
+                        uTime: { value: 0 },
+                        uSpeed: { value: 0.25 },
+                        uNoiseScale: { value: 2.0 },
+                        uAmplitude: { value: 0.5 },
+                        uDisplacementScale: { value: 1.0 },
+                        uAmbientColor: { value: new THREE.Color(0x404040) },
+                        uDirectionalColor: { value: new THREE.Color(0xffffff) },
+                        uPointLightColor: { value: new THREE.Color(0xffaa88) },
+                        uSpotLightColor: { value: new THREE.Color(0x88ff88) },
+                        uSpecularPower: { value: 32.0 },
+                        uSpecularIntensity: { value: 0.6 },
+                        uFog: { value: 0.0 },
+                        uFogColor: { value: new THREE.Color(0xffffff) },
+                        uColorVariation: { value: 1.0 }
+                    },
+                    wireframe: false
+                });
+                this.plane = new THREE.Mesh(geometry, this.planeMaterial);
+                this.plane.rotation.x = -Math.PI / 2;
+                this.scene.add(this.plane);
+            }
+
+            createParticles() {
+                const mode = document.querySelector('.mode-btn.active')?.dataset.mode || 'medium';
+                const resolution = document.getElementById('resolution').value;
+                let particleScale = this.resolutionScale * this.resolutionScale;
+                if (resolution === '3840x2160') particleScale = 4.0;
+                else if (resolution === '2560x1440') particleScale = 2.5;
+                else if (resolution === '1920x1080') particleScale = 1.5;
+                else if (resolution === '1280x720') particleScale = 1.0;
+                else particleScale = 0.6;
+                this.particleCount = Math.floor(this.baseParticleCount * particleScale * this.stressModes[mode].particles);
+                
+                const geometry = new THREE.BufferGeometry();
+                const positions = [];
+                const velocities = [];
+                const bounds = 50;
+                const height = 30;
+                for (let i = 0; i < this.particleCount; i++) {
+                    positions.push(
+                        Math.random() * bounds - bounds / 2,
+                        Math.random() * height + 5,
+                        Math.random() * bounds - bounds / 2
+                    );
+                    velocities.push(
+                        (Math.random() - 0.5) * 2.0,
+                        -Math.random() * 3.0,
+                        (Math.random() - 0.5) * 2.0
+                    );
+                }
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geometry.setAttribute('velocity', new THREE.Float32BufferAttribute(velocities, 3));
+                const material = new THREE.ShaderMaterial({
+                    vertexShader: `
+                        attribute vec3 velocity;
+                        uniform float uTime;
+                        uniform float uParticleSize;
+                        uniform float uSpeed;
+                        uniform vec3 uColor;
+                        uniform float uEmissive;
+                        uniform float uWindForce;
+                        
+                        varying vec3 vColor;
+                        
+                        float noise(vec3 p) {
+                            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+                        }
+
+                        void main() {
+                            vec3 newPos = position + velocity * uTime * uSpeed;
+                            float halfSpread = 50.0;
+                            
+                            if(newPos.y < -5.0) {
+                                newPos.y = 30.0;
+                                newPos.x = (noise(vec3(uTime + position.x)) - 0.5) * halfSpread;
+                                newPos.z = (noise(vec3(uTime + position.z)) - 0.5) * halfSpread;
+                            }
+                            
+                            vColor = uColor * (0.8 + sin(uTime * 2.0 + position.x) * 0.2);
+                            gl_PointSize = uParticleSize * 10.0 * (1.0 + sin(uTime * 5.0 + position.x) * 0.5);
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vColor;
+                        uniform float uEmissive;
+                        
+                        void main() {
+                            vec2 circ = gl_PointCoord - 0.5;
+                            if(dot(circ, circ) > 0.25) discard;
+                            
+                            vec3 col = vColor * uEmissive * 2.0;
+                            gl_FragColor = vec4(col, 0.8);
+                        }
+                    `,
+                    uniforms: {
+                        uTime: { value: 0 },
+                        uParticleSize: { value: 0.4 },
+                        uSpeed: { value: 3.0 },
+                        uColor: { value: new THREE.Color(0xff6600) },
+                        uEmissive: { value: 5.0 },
+                        uWindForce: { value: 1.5 }
+                    },
+                    transparent: true,
+                    depthWrite: false,
+                    blending: THREE.AdditiveBlending
+                });
+                this.rainParticles = new THREE.Points(geometry, material);
+                this.rainParticles.renderOrder = 999;
+                this.rainParticles.position.y = -1;
+                this.scene.add(this.rainParticles);
+            }
+
+            createSpheres() {
+                const mode = document.querySelector('.mode-btn.active')?.dataset.mode || 'medium';
+                const resolution = document.getElementById('resolution').value;
+                let sphereScale = this.resolutionScale;
+                if (resolution === '3840x2160') sphereScale = 2.0;
+                else if (resolution === '2560x1440') sphereScale = 1.6;
+                else if (resolution === '1920x1080') sphereScale = 1.2;
+                else if (resolution === '1280x720') sphereScale = 0.8;
+                else sphereScale = 0.5;
+                this.sphereCount = Math.floor(this.baseSphereCount * sphereScale * this.stressModes[mode].spheres);
+                
+                const geometry = new THREE.SphereGeometry(0.4, 32, 32);
+                this.sphereMaterial = new THREE.ShaderMaterial({
+                    vertexShader: `
+                        uniform float uTime;
+                        varying vec3 vNormal;
+                        varying vec3 vWorldPosition;
+
+                        void main() {
+                            vNormal = normalize(normalMatrix * normal);
+                            vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position + sin(uTime + position.x) * 0.4, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vNormal;
+                        varying vec3 vWorldPosition;
+                        uniform vec3 uColor;
+                        uniform vec3 uSpotLightColor;
+                        uniform float uSpecularPower;
+
+                        void main() {
+                            vec3 lightDir = normalize(vec3(0.0, 10.0, 0.0) - vWorldPosition);
+                            vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+                            vec3 reflectDir = reflect(-lightDir, vNormal);
+                            float diffuse = max(dot(vNormal, lightDir), 0.0);
+                            float specular = pow(max(dot(viewDir, reflectDir), 0.0), uSpecularPower);
+                            vec3 color = uColor * diffuse + uSpotLightColor * specular;
+                            gl_FragColor = vec4(color, 1.0);
+                        }
+                    `,
+                    uniforms: {
+                        uTime: { value: 0 },
+                        uColor: { value: new THREE.Color(0xffffff) },
+                        uSpotLightColor: { value: new THREE.Color(0x88ff88) },
+                        uSpecularPower: { value: 32.0 }
+                    }
+                });
+                
+                this.spheres = [];
+                for (let i = 0; i < this.sphereCount; i++) {
+                    const sphere = new THREE.Mesh(geometry, this.sphereMaterial);
+                    sphere.position.set(
+                        (Math.random() - 0.5) * 40,
+                        Math.random() * 5 + 2,
+                        (Math.random() - 0.5) * 40
+                    );
+                    this.spheres.push(sphere);
+                    this.scene.add(sphere);
+                }
+            }
+
+            updateParticles() {
+                this.scene.remove(this.rainParticles);
+                this.createParticles();
+            }
+
+            updateSpheres() {
+                this.spheres.forEach(sphere => this.scene.remove(sphere));
+                this.spheres = [];
+                this.createSpheres();
+            }
+
+            setupControls() {
+                const stressSlider = document.getElementById('stressLevel');
+                const stressValue = document.getElementById('stressValue');
+                const cpuStressSlider = document.getElementById('cpuStressLevel');
+                const cpuStressValue = document.getElementById('cpuStressValue');
+                const resolutionSelect = document.getElementById('resolution');
+                const presetSelect = document.getElementById('preset');
+                const modeButtons = document.querySelectorAll('.mode-btn');
+                const startBtn = document.getElementById('start-btn');
+                const stopBtn = document.getElementById('stop-btn');
+                const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+                stressSlider.addEventListener('input', () => {
+                    this.stressLevel = stressSlider.value / 100;
+                    stressValue.textContent = `${stressSlider.value}%`;
+                    modeButtons.forEach(btn => btn.classList.remove('active'));
+                    this.updateObjectCount();
+                });
+
+                cpuStressSlider.addEventListener('input', () => {
+                    this.cpuStressLevel = cpuStressSlider.value / 100;
+                    cpuStressValue.textContent = `${cpuStressSlider.value}%`;
+                    this.updateCPUStress();
+                });
+
+                resolutionSelect.addEventListener('change', () => {
+                    this.updateResolution();
+                });
+
+                presetSelect.addEventListener('change', () => {
+                    this.applyPreset(presetSelect.value);
+                });
+
+                modeButtons.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const mode = btn.dataset.mode;
+                        this.stressLevel = this.stressModes[mode].factor;
+                        stressSlider.value = this.stressLevel * 100;
+                        stressValue.textContent = `${Math.round(this.stressLevel * 100)}%`;
+                        modeButtons.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.updateObjectCount();
+                    });
+                });
+
+                startBtn.addEventListener('click', () => {
+                    this.startTest();
+                });
+
+                stopBtn.addEventListener('click', () => {
+                    this.stopTest();
+                });
+
+                fullscreenBtn.addEventListener('click', () => {
+                    this.toggleFullscreen();
+                });
+
+                const mediumBtn = document.querySelector('.mode-btn[data-mode="medium"]');
+                mediumBtn.classList.add('active');
+                this.stressLevel = this.stressModes.medium.factor;
+                stressSlider.value = this.stressLevel * 100;
+                stressValue.textContent = `${Math.round(this.stressLevel * 100)}%`;
+                this.updateObjectCount();
+            }
+
+            updateResolution() {
+                const isMobile = /Mobi|Android|iPhone|iPad/.test(navigator.userAgent);
+                const [width, height] = document.getElementById('resolution').value.split('x').map(Number);
+                this.canvas.width = isMobile ? Math.min(width, 1280) : width;
+                this.canvas.height = isMobile ? Math.min(height, 720) : height;
+                this.canvas.style.width = `${this.canvas.width}px`;
+                this.canvas.style.height = `${this.canvas.height}px`;
+                this.renderer.setSize(this.canvas.width, this.canvas.height, false);
+                this.resolutionScale = Math.sqrt((width * height) / (1280 * 720));
+                if (width === 3840 && height === 2160) this.resolutionScale = 2.5;
+                else if (width === 2560 && height === 1440) this.resolutionScale = 1.8;
+                else if (width === 1920 && height === 1080) this.resolutionScale = 1.2;
+                else if (width === 1280 && height === 720) this.resolutionScale = 0.8;
+                else this.resolutionScale = 0.5;
+                this.renderer.setPixelRatio(this.resolutionScale * 1.5);
+                this.camera.aspect = this.canvas.width / this.canvas.height;
+                this.camera.updateProjectionMatrix();
+                this.updateObjectCount();
+            }
+
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.error('Fullscreen request failed:', err);
+                        this.loadingDisplay.textContent = 'Error: Fullscreen not supported';
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+                setTimeout(() => this.updateResolution(), 100);
+            }
+
+            updateObjectCount() {
+                this.scene.remove(this.plane);
+                this.createPlane();
+                this.updateParticles();
+                this.updateSpheres();
+                this.applyPreset(document.getElementById('preset').value);
+            }
+
+            updateCPUStress() {
+                const maxWorkers = navigator.hardwareConcurrency || 4;
+                const activeWorkers = Math.ceil(maxWorkers * this.cpuStressLevel);
+                this.cpuWorkers.forEach(worker => worker.terminate());
+                this.cpuWorkers = [];
+                this.cpuIterationCount = 0;
+                this.cpuComputationTimes = [];
+
+                for (let i = 0; i < activeWorkers; i++) {
+                    const worker = new Worker(URL.createObjectURL(new Blob([`
+                        function matrixMultiply(size) {
+                            const matrixA = new Float64Array(size * size);
+                            const matrixB = new Float64Array(size * size);
+                            const result = new Float64Array(size * size);
+                            for (let i = 0; i < size * size; i++) {
+                                matrixA[i] = Math.random();
+                                matrixB[i] = Math.random();
+                            }
+                            for (let i = 0; i < size; i++) {
+                                for (let j = 0; j < size; j++) {
+                                    let sum = 0;
+                                    for (let k = 0; k < size; k++) {
+                                        sum += matrixA[i * size + k] * matrixB[k * size + j];
+                                    }
+                                    result[i * size + j] = sum;
+                                }
+                            }
+                            return result;
+                        }
+                        function simpleHash(input) {
+                            let hash = 0;
+                            for (let i = 0; i < input.length; i++) {
+                                hash = ((hash << 5) - hash) + input.charCodeAt(i);
+                                hash = hash & hash;
+                            }
+                            return hash;
+                        }
+                        function fibonacci(n) {
+                            let a = 0, b = 1;
+                            for (let i = 0; i < n; i++) {
+                                const temp = a + b;
+                                a = b;
+                                b = temp;
+                            }
+                            return a;
+                        }
+                        function stressCPU(stressLevel) {
+                            const startTime = performance.now();
+                            let iterations = 0;
+                            const matrixSize = Math.floor(200 + stressLevel * 150);
+                            const hashIterations = Math.floor(3000 + stressLevel * 3000);
+                            const fibIterations = Math.floor(25 + stressLevel * 15);
+                            const floatIterations = Math.floor(300000 + stressLevel * 300000);
+                            matrixMultiply(matrixSize);
+                            let data = "stress-test-data-" + Math.random();
+                            for (let i = 0; i < hashIterations; i++) {
+                                data = simpleHash(data).toString();
+                            }
+                            for (let i = 0; i < 50; i++) {
+                                fibonacci(fibIterations);
+                            }
+                            let sum = 0;
+                            for (let i = 0; i < floatIterations; i++) {
+                                sum += Math.sin(i) * Math.cos(i) * Math.tan(i / (i + 1));
+                            }
+                            iterations++;
+                            const endTime = performance.now();
+                            self.postMessage({ done: true, iterations: iterations, computationTime: endTime - startTime });
+                            stressCPU(stressLevel);
+                        }
+                        self.onmessage = function(e) {
+                            if (e.data.start) {
+                                stressCPU(e.data.stressLevel);
+                            }
+                        };
+                    `], { type: 'application/javascript' })));
+
+                    worker.postMessage({ start: true, stressLevel: this.cpuStressLevel });
+                    this.cpuWorkers.push(worker);
+                    worker.onmessage = (e) => {
+                        if (performance.now() - this.testStartTime <= 7000) {
+                            this.cpuIterationCount += e.data.iterations;
+                            this.cpuComputationTimes.push(e.data.computationTime);
+                            const avgComputationTime = this.cpuComputationTimes.reduce((a, b) => a + b, 0) / this.cpuComputationTimes.length;
+                            this.cpuUsage = Math.round(this.cpuStressLevel * 100);
+                            this.lastCpuUsage = this.cpuUsage;
+                            document.getElementById('cpuUsage').textContent = `${this.cpuUsage}%`;
+                            this.updateCPUScore(this.cpuStressLevel, avgComputationTime, this.cpuIterationCount, activeWorkers);
+                        }
+                    };
+                }
+                if (this.cpuStressLevel === 0) {
+                    this.cpuUsage = 0;
+                    this.lastCpuUsage = 0;
+                    document.getElementById('cpuUsage').textContent = `0%`;
+                    this.cpuScore = 0;
+                    this.lastCpuScore = 0;
+                    document.getElementById('cpuScore').textContent = `${this.cpuScore}`;
+                }
+            }
+
+            updateGPUScore(fps, stress, resolution) {
+                const resolutionFactor = resolution === '3840x2160' ? 2.5 :
+                                        resolution === '2560x1440' ? 2.0 :
+                                        resolution === '1920x1080' ? 1.5 :
+                                        resolution === '1280x720' ? 1.0 : 0.6;
+                this.gpuScore = Math.round(fps * stress * resolutionFactor * 800);
+                this.lastGpuScore = this.gpuScore;
+                document.getElementById('gpuScore').textContent = `${this.gpuScore}`;
+            }
+
+            updateCPUScore(cpuStress, avgComputationTime, iterationCount, activeWorkers) {
+                const coreFactor = navigator.hardwareConcurrency || 4;
+                const baseTime = 1000;
+                const performanceFactor = avgComputationTime > 0 ? baseTime / avgComputationTime : 1;
+                const iterationsPerSecond = iterationCount / (avgComputationTime / 1000);
+                this.cpuScore = Math.round(iterationsPerSecond * cpuStress * coreFactor * performanceFactor * 5);
+                this.lastCpuScore = this.cpuScore;
+                document.getElementById('cpuScore').textContent = `${this.cpuScore}`;
+            }
+
+            startTest() {
+                if (!this.isRunning) {
+                    this.isRunning = true;
+                    this.lastTime = performance.now();
+                    this.testStartTime = this.lastTime;
+                    this.frameCount = 0;
+                    this.cpuIterationCount = 0;
+                    this.cpuComputationTimes = [];
+                    this.updateCPUStress();
+                    this.updateObjectCount();
+                    this.loadingDisplay.textContent = 'Running...';
+                    this.renderer.setAnimationLoop((time) => this.render(time));
+                }
+            }
+
+            stopTest() {
+                this.isRunning = false;
+                this.renderer.setAnimationLoop(null);
+                document.getElementById('fps').textContent = `${this.lastFps}`;
+                document.getElementById('cpuUsage').textContent = `${this.lastCpuUsage}%`;
+                document.getElementById('gpuScore').textContent = `${this.lastGpuScore}`;
+                document.getElementById('cpuScore').textContent = `${this.lastCpuScore}`;
+                this.cpuWorkers.forEach(worker => worker.terminate());
+                this.cpuWorkers = [];
+                this.cpuIterationCount = 0;
+                this.cpuComputationTimes = [];
+                this.testStartTime = 0;
+                this.renderer.render(this.scene, this.camera);
+                this.loadingDisplay.textContent = 'Stopped';
+            }
+
+            render(time = performance.now()) {
+                if (!this.isRunning) return;
+
+                const now = performance.now();
+                const resolution = document.getElementById('resolution').value;
+
+                if (document.getElementById('preset').value === 'volumetric') {
+                    this.volumetricAngle1 += 0.01 * this.stressLevel;
+                    const cx = this.canvas.width;
+                    const cy = this.canvas.height;
+                    const x = cx * 2.0 / (cx + cy);
+                    const y = cy * 2.0 / (cx + cy);
+                    const right = new THREE.Vector3(Math.sin(this.volumetricAngle1), 0, -Math.cos(this.volumetricAngle1));
+                    const up = new THREE.Vector3(
+                        -Math.sin(this.volumetricAngle2) * Math.cos(this.volumetricAngle1),
+                        Math.cos(this.volumetricAngle2),
+                        -Math.sin(this.volumetricAngle2) * Math.sin(this.volumetricAngle1)
+                    );
+                    const forward = new THREE.Vector3(
+                        -Math.cos(this.volumetricAngle1) * Math.cos(this.volumetricAngle2),
+                        -Math.sin(this.volumetricAngle2),
+                        -Math.sin(this.volumetricAngle1) * Math.cos(this.volumetricAngle2)
+                    );
+                    const origin = new THREE.Vector3(
+                        this.volumetricLen * Math.cos(this.volumetricAngle1) * Math.cos(this.volumetricAngle2) + this.volumetricCenX,
+                        this.volumetricLen * Math.sin(this.volumetricAngle2) + this.volumetricCenY,
+                        this.volumetricLen * Math.sin(this.volumetricAngle1) * Math.cos(this.volumetricAngle2) + this.volumetricCenZ
+                    );
+                    this.volumetricMaterial.uniforms.right.value.copy(right);
+                    this.volumetricMaterial.uniforms.up.value.copy(up);
+                    this.volumetricMaterial.uniforms.forward.value.copy(forward);
+                    this.volumetricMaterial.uniforms.origin.value.copy(origin);
+                    this.volumetricMaterial.uniforms.x.value = x;
+                    this.volumetricMaterial.uniforms.y.value = y;
+                    this.volumetricMaterial.uniforms.len.value = this.volumetricLen;
+                } else {
+                    this.planeMaterial.uniforms.uTime.value += 0.015 * this.stressLevel;
+                    if (this.rainParticles) {
+                        this.rainParticles.material.uniforms.uTime.value += 0.08 * this.stressLevel;
+                        this.rainParticles.rotation.y += 0.001 * 1.2;
+                    }
+                    this.sphereMaterial.uniforms.uTime.value += 0.015;
+                    this.spheres.forEach((sphere, i) => {
+                        sphere.position.y = 2 + Math.sin(now * 0.001 + i) * 1.5;
+                    });
+
+                    this.directionalLight.position.set(
+                        Math.sin(now * 0.0015) * 5,
+                        2 + Math.cos(now * 0.002) * 0.6,
+                        Math.cos(now * 0.0015) * 5
+                    ).normalize();
+                    this.pointLight.position.set(
+                        Math.sin(now * 0.0008) * 7,
+                        2 + Math.cos(now * 0.001) * 0.6,
+                        Math.cos(now * 0.0008) * 7
+                    );
+                    this.spotLight.position.set(
+                        Math.sin(now * 0.0006) * 10,
+                        10,
+                        Math.cos(now * 0.0006) * 10
+                    );
+
+                    const t = now * 0.00015 * 0.7;
+                    const targetX = Math.sin(t) * 5;
+                    const targetZ = Math.cos(t) * 5;
+                    this.camera.position.x += (targetX - this.camera.position.x) * (1 - 0.85);
+                    this.camera.position.z += (targetZ - this.camera.position.z) * (1 - 0.85);
+                    this.camera.lookAt(0, 0, 0);
+                }
+
+                const mode = document.querySelector('.mode-btn.active')?.dataset.mode || 'medium';
+                const computeScale = resolution === '3840x2160' ? 5.0 :
+                                     resolution === '2560x1440' ? 3.5 :
+                                     resolution === '1920x1080' ? 2.0 :
+                                     resolution === '1280x720' ? 1.5 : 1.0;
+                for (let i = 0; i < this.stressModes[mode].calcLoops * this.stressLevel * 100 * computeScale; i++) {
+                    Math.sin(now * 0.001 + i) * Math.cos(now * 0.001 + i) * Math.tan(now * 0.001 + i);
+                }
+
+                try {
+                    this.renderer.render(this.scene, this.camera);
+                } catch (e) {
+                    console.error('Rendering failed:', e);
+                    this.loadingDisplay.textContent = 'Error: Rendering failed';
+                    this.stopTest();
+                    return;
+                }
+
+                this.frameCount++;
+                if (now - this.lastTime >= 1000) {
+                    this.fps = this.frameCount;
+                    this.lastFps = this.fps;
+                    this.frameCount = 0;
+                    this.lastTime = now;
+                    document.getElementById('fps').textContent = `${this.fps}`;
+                    this.updateGPUScore(this.fps, this.stressLevel, resolution);
+                }
+            }
+        }
+
+        const renderer = new Renderer("#canvas");
+
+        window.addEventListener("resize", () => {
+            renderer.updateResolution();
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            renderer.updateResolution();
+        });
+    </script>
+</body>
+</html>
